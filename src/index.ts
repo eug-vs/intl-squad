@@ -5,11 +5,11 @@ import { extractMessages } from "./extractor";
 import { findUnlocalizedStrings } from "./finder";
 import { translate } from "./translator";
 import { applyPatch, readAndParseJson, updateFileContents } from "./ops";
-import { formatGitDiff } from "./git";
+import { formatGitDiff, formatPatch } from "./git";
 
 const config = {
   cwd: "/home/eug-vs/Documents/Projects/1moment.io/apps/web",
-  filter: "**/settings/page.tsx",
+  filter: "**/business/**/*.tsx",
   projectContext: `Hint: "Tables" most likely means dining tables, not data-tables.`,
   locales: ["en", "pl", "ru"],
   defaultLocale: "en",
@@ -38,7 +38,7 @@ function program(args: {
     Effect.flatMap(({ messagesJson, filesToRefactor }) =>
       pipe(
         Effect.forEach(
-          filesToRefactor,
+          filesToRefactor.slice(0, 5),
           (file, fileIndex) =>
             pipe(
               extractMessages({
@@ -77,7 +77,9 @@ function program(args: {
                         }),
                       }),
                       Effect.map(({ fileDiff, jsonDiffs }) =>
-                        [fileDiff, ...jsonDiffs].join("\n"),
+                        formatPatch([fileDiff, ...jsonDiffs], {
+                          body: result.translatorNotes,
+                        }),
                       ),
                       Effect.tap(Effect.logInfo),
                       Effect.flatMap((patch) =>

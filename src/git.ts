@@ -49,3 +49,36 @@ export function formatGitDiff(filePath: string, patchedContents: string) {
     }),
   );
 }
+
+export function formatPatch(
+  diffs: string[],
+  options: {
+    author?: string;
+    subject?: string;
+    body?: string;
+    date?: Date;
+  } = {},
+): string {
+  const {
+    author = "AI Assistant <ai@eug-vs.xyz>",
+    subject = "AI Refactor",
+    body = "",
+    date = new Date(),
+  } = options;
+
+  const patchDate = date.toUTCString();
+  const commitSha = "0000000000000000000000000000000000000000"; // dummy SHA
+
+  const header = [
+    `From ${commitSha} Mon Sep 17 00:00:00 2001`,
+    `From: ${author}`,
+    `Date: ${patchDate}`,
+    `Subject: [PATCH] ${subject}`,
+    "",
+  ];
+
+  const bodyLines = body ? [body.trim(), ""] : [];
+
+  const separator = ["---"];
+  return [...header, ...bodyLines, ...separator, ...diffs].join("\n");
+}
