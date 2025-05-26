@@ -21,22 +21,35 @@ export function updateFileContents(filePath: string, contents: string) {
   );
 }
 
-// This is probably very bugged and can cause infinite recursion,
-// but I don't care it works better than any fuzzy matcher I've tried
-// WARN: the underlying assumption is that the pattern string *actually* exists
-// in source, and is (relatively) unique
-function matchRange(source: string, pattern: string): [number, number] {
-  if (!pattern) null;
+// Find the shortest substring of source that contains
+// the entire pattern as a subsequence (possibly with missed characters)
+// - missing characters *are* allowed (AI can trim inner whitespace sometimes)
+// - extra characters *are not* allowed
+// - reorders *are not* allowed (AI doesnt seem to mess up order)
+export function matchRange(source: string, pattern: string): [number, number] {
+  let best: [number, number] = [0, source.length + 1]; // init with max range
 
-  const start = source.indexOf(pattern);
-  if (start !== -1) return [start, start + pattern.length];
-  else {
-    const midpoint = Math.floor(pattern.length / 2);
-    const left = matchRange(source, pattern.slice(0, midpoint));
-    const right = matchRange(source, pattern.slice(midpoint));
-    if (!left || !right) throw ":(";
-    return [left[0], right[1]];
+  for (let i = 0; i < source.length; i++) {
+    if (source[i] !== pattern[0]) continue;
+
+    let si = i;
+    let pi = 0;
+
+    while (si < source.length && pi < pattern.length) {
+      if (source[si] === pattern[pi]) pi++;
+      si++;
+    }
+
+    if (pi === pattern.length && si - i < best[1] - best[0]) {
+      best = [i, si];
+    }
   }
+
+  if (best[1] > source.length) {
+    throw new Error("No match found");
+  }
+
+  return best;
 }
 
 export function applyPatch(source: string, patch: PatchHunk[]) {
