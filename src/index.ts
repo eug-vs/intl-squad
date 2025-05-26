@@ -5,6 +5,7 @@ import { extractMessages } from "./extractor";
 import { findUnlocalizedStrings } from "./finder";
 import { translate } from "./translator";
 import { applyPatch, readAndParseJson, updateFileContents } from "./ops";
+import { formatGitDiff } from "./git";
 
 const config = {
   cwd: "/home/eug-vs/Documents/Projects/1moment.io/apps/web",
@@ -38,60 +39,57 @@ function program(args: {
       pipe(
         Effect.forEach(
           filesToRefactor,
-          (file) =>
+          (file, fileIndex) =>
             pipe(
               extractMessages({
                 source: file.source,
                 messagesJson: JSON.stringify(messagesJson),
               }),
-              Effect.tap((result) =>
+              Effect.flatMap((result) =>
                 pipe(
-                  applyPatch(file.source, result.patch),
-                  Effect.flatMap((contents) =>
-                    updateFileContents(file.filePath, contents),
+                  translate({
+                    projectContext: args.projectContext,
+                    translatorNotes: result.translatorNotes,
+                    requestedLocales: args.locales,
+                    stringifedMessages: JSON.stringify(result.messages),
+                  }),
+                  Effect.flatMap((localizations) =>
+                    pipe(
+                      Effect.all({
+                        fileDiff: pipe(
+                          applyPatch(file.source, result.patch),
+                          Effect.flatMap((contents) =>
+                            formatGitDiff(file.filePath, contents),
+                          ),
+                        ),
+                        jsonDiffs: Effect.forEach(localizations, (loc) => {
+                          const jsonPath = `${args.messagesPath}/${loc.locale}.json`;
+                          return pipe(
+                            readAndParseJson(jsonPath),
+                            Effect.map((json) => _.merge(json, loc.messages)),
+                            Effect.map((json) =>
+                              JSON.stringify(json, null, "  "),
+                            ),
+                            Effect.flatMap((newContents) =>
+                              formatGitDiff(jsonPath, newContents),
+                            ),
+                          );
+                        }),
+                      }),
+                      Effect.map(({ fileDiff, jsonDiffs }) =>
+                        [fileDiff, ...jsonDiffs].join("\n"),
+                      ),
+                      Effect.tap(Effect.logInfo),
+                      Effect.flatMap((patch) =>
+                        updateFileContents(`/tmp/${fileIndex}.patch`, patch),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-              Effect.flatMap((result) =>
-                translate({
-                  projectContext: args.projectContext,
-                  translatorNotes: result.translatorNotes,
-                  requestedLocales: args.locales,
-                  stringifedMessages: JSON.stringify(result.messages),
-                }),
               ),
             ),
           { concurrency: "unbounded" },
         ),
-        Effect.flatMap((results) => {
-          return Effect.forEach(
-            args.locales,
-            (locale) => {
-              const jsonPath = `${args.messagesPath}/${locale}.json`;
-              return pipe(
-                readAndParseJson(jsonPath),
-                Effect.map((currentJson) =>
-                  results
-                    .flat()
-                    .filter((r) => r.locale === locale)
-                    .reduce(
-                      (json, data) => _.merge(json, data.messages),
-                      currentJson,
-                    ),
-                ),
-                Effect.flatMap((updatedJson) =>
-                  updateFileContents(
-                    jsonPath,
-                    JSON.stringify(updatedJson, null, "  "),
-                  ),
-                ),
-              );
-            },
-            {
-              concurrency: "unbounded",
-            },
-          );
-        }),
       ),
     ),
     Logger.withMinimumLogLevel(LogLevel.Debug),

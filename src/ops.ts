@@ -8,7 +8,7 @@ export function readAndParseJson(filePath: string) {
     Effect.tap(Effect.logInfo(`Reading ${filePath}`)),
     Effect.flatMap((fs) => fs.readFileString(filePath)),
     Effect.flatMap((contents) => Effect.try(() => JSON.parse(contents))),
-    Effect.withLogSpan("updateFileContents"),
+    Effect.withLogSpan("readAndParseJson"),
   );
 }
 
