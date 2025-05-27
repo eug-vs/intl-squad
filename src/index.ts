@@ -6,32 +6,16 @@ import { findUnlocalizedStrings } from "./finder";
 import { translate } from "./translator";
 import { applyPatch, readAndParseJson, updateFileContents } from "./ops";
 import { formatGitDiff, formatPatch } from "./git";
+import { projectConfig, Config } from "../config";
 
-const config = {
-  cwd: "/home/eug-vs/Documents/Projects/1moment.io/apps/web",
-  filter: "**/business/**/*.tsx",
-  projectContext: `Hint: "Tables" most likely means dining tables, not data-tables.`,
-  locales: ["en", "pl", "ru"],
-  defaultLocale: "en",
-  messagesPath:
-    "/home/eug-vs/Documents/Projects/1moment.io/apps/web/src/messages",
-};
-
-function program(args: {
-  cwd: string;
-  filter: string;
-  messagesPath: string;
-  locales: string[];
-  defaultLocale: string;
-  projectContext: string;
-}) {
+function program(config: Config) {
   return pipe(
     Effect.all(
       {
         messagesJson: readAndParseJson(
-          `${args.messagesPath}/${args.defaultLocale}.json`,
+          `${config.messagesPath}/${config.defaultLocale}.json`,
         ),
-        filesToRefactor: findUnlocalizedStrings(args.cwd, args.filter),
+        filesToRefactor: findUnlocalizedStrings(config.cwd, config.filter),
       },
       { concurrency: "unbounded" },
     ),
@@ -56,9 +40,9 @@ function program(args: {
               Effect.flatMap((result) =>
                 pipe(
                   translate({
-                    projectContext: args.projectContext,
+                    projectContext: config.projectContext,
                     translatorNotes: result.translatorNotes,
-                    requestedLocales: args.locales,
+                    requestedLocales: config.locales,
                     stringifedMessages: JSON.stringify(result.messages),
                   }),
                   Effect.flatMap((localizations) =>
@@ -71,7 +55,7 @@ function program(args: {
                           ),
                         ),
                         jsonDiffs: Effect.forEach(localizations, (loc) => {
-                          const jsonPath = `${args.messagesPath}/${loc.locale}.json`;
+                          const jsonPath = `${config.messagesPath}/${loc.locale}.json`;
                           return pipe(
                             readAndParseJson(jsonPath),
                             Effect.map((json) => _.merge(json, loc.messages)),
@@ -109,4 +93,4 @@ function program(args: {
   );
 }
 
-Effect.runPromise(program(config));
+Effect.runPromise(program(projectConfig));
