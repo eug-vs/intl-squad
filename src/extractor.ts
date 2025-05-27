@@ -65,9 +65,11 @@ const schema = z.object({
 export function extractMessages({
   source,
   messagesJson,
+  occurences,
 }: {
   source: string;
   messagesJson: string;
+  occurences: string[];
 }) {
   return runAgent("extractor", () =>
     generateObject({
@@ -83,7 +85,7 @@ export function extractMessages({
           CORE CAPABILITIES:
           • Possess expert-level knowledge of next-intl APIs and internationalization processes.
           • Understand the specific contexts: use the useTranslations hook for all components except asynchronous (ASYNC) components, which must exclusively utilize the getTranslations function (imported from "next-intl/server").
-          • Analyze file contents for unlocalized strings (optionally provided with positional data such as line and column numbers) and evaluate any existing i18n message JSON files.
+          • Analyze file contents for unlocalized strings (optionally provided with positional data such as line and column numbers OR specific list of occurences) and evaluate any existing i18n message JSON files.
           • Generate updated file contents by replacing unlocalized strings with the correct next-intl API call format. Assign the result of the function to a variable named 't' preferrably (e.g., "const t = useTranslations('SideBar')") .
           • Produce a JSON object containing new i18n message entries formatted using the ICU syntax, incorporating pluralization where applicable.
           • Option to include concise, context-rich descriptions for translators when critical, including hints, context, and disambiguation explanations when prompted.
@@ -95,11 +97,13 @@ export function extractMessages({
           • Follow industry best practices and standard coding conventions; maintain the original file structure except for the necessary modifications.
 
           CONSTRAINTS & BOUNDARIES:
+          • The provided file is guaranteed to have at least one occurence of unlocalized string, found by react/jsx-no-literals rule.
+          • If the list of occurences is passed explicitly, act exclusively on them.
           • Operate only within the scope of next-intl integration for internationalization. Avoid modifying unrelated code logic.
           • Base modifications exclusively on the provided file content, indicated string positions, and any supplied JSON message definitions.
           • Guarantee that all changes are reversible and affect only the designated segments for i18n integration.
           • Do not perform operations beyond updating file contents and generating a new JSON object with updated i18n messages.
-          • Do not perform operations on non-language strings like separators, symbols, brackets, etc.
+          • If you encounter non-language strings like separators, symbols, brackets, etc - try wrapping the whole sequence into translation call with parameters. If that is ugly or not possible and this symbol is better to be ignored - add eslint-ignore comment "eslint-disable-next-line react/jsx-no-literals".
 
           SUCCESS CRITERIA:
           • Updated file contents must replace all unlocalized strings with the appropriate next-intl API calls: use getTranslations solely within ASYNC components (imported from "next-intl/server") and the useTranslations hook in all other instances (storing its result in a variable 't', e.g., "const t = useTranslations('SideBar')").
@@ -118,6 +122,18 @@ export function extractMessages({
           role: "system",
           content: messagesJson,
         },
+        ...(occurences.length
+          ? [
+              {
+                role: "system" as const,
+                content: `Below follows a list of unlocalized string occurences`,
+              },
+              ...occurences.map((v) => ({
+                role: "system" as const,
+                content: v,
+              })),
+            ]
+          : []),
       ],
     }),
   );

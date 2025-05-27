@@ -44,6 +44,14 @@ function program(args: {
               extractMessages({
                 source: file.source,
                 messagesJson: JSON.stringify(messagesJson),
+                occurences: file.messages.map((msg) => {
+                  if (!msg.line || !msg.endLine)
+                    throw new Error("Rule violation region not specified");
+                  return file.source
+                    .split("\n")
+                    .slice(msg.line, msg.endLine + 1)
+                    .join("\n");
+                }),
               }),
               Effect.flatMap((result) =>
                 pipe(

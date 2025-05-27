@@ -5,6 +5,8 @@ const Message = Schema.Struct({
   ruleId: Schema.NullishOr(Schema.String),
   line: Schema.NullishOr(Schema.Number),
   column: Schema.NullishOr(Schema.Number),
+  endLine: Schema.NullishOr(Schema.Number),
+  endColumn: Schema.NullishOr(Schema.Number),
 });
 
 const EslintOutputSchema = Schema.Array(
@@ -27,9 +29,14 @@ export function findUnlocalizedStrings(path: string, filter: string) {
     Effect.flatMap((stdout) => Effect.try(() => JSON.parse(stdout))),
     Effect.flatMap(Schema.decode(EslintOutputSchema)),
     Effect.map((s) =>
-      s.filter((f) =>
-        f.messages.some((m) => m.ruleId === "react/jsx-no-literals"),
-      ),
+      s
+        .map((f) => ({
+          ...f,
+          messages: f.messages.filter(
+            (m) => m.ruleId === "react/jsx-no-literals",
+          ),
+        }))
+        .filter((f) => f.messages.length),
     ),
     Effect.tap((files) =>
       Effect.logDebug(
