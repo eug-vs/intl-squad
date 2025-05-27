@@ -33,19 +33,21 @@ export function formatGitDiff(filePath: string, patchedContents: string) {
     }),
     Effect.map(({ patch, relativeFilePath }) => {
       return patch
-        .split("\n")
-        .toSpliced(
-          0,
-          1,
-          `diff --git a/${relativeFilePath} b/${relativeFilePath}`,
-        )
-        .toSpliced(
-          2,
-          2,
-          `--- a/${relativeFilePath}`,
-          `+++ b/${relativeFilePath}`,
-        )
-        .join("\n");
+        ? patch
+            .split("\n")
+            .toSpliced(
+              0,
+              1,
+              `diff --git a/${relativeFilePath} b/${relativeFilePath}`,
+            )
+            .toSpliced(
+              2,
+              2,
+              `--- a/${relativeFilePath}`,
+              `+++ b/${relativeFilePath}`,
+            )
+            .join("\n")
+        : "";
     }),
   );
 }
