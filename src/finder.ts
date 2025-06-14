@@ -19,9 +19,9 @@ const EslintOutputSchema = Schema.Array(
   }),
 );
 
-export function findUnlocalizedStrings(path: string, filter: string) {
+export function findUnlocalizedStrings(path: string, filter: string[]) {
   return pipe(
-    Command.make("pnpm", "eslint", "-f", "json", filter),
+    Command.make("pnpm", "eslint", "-f", "json", ...filter),
     Command.workingDirectory(path),
     Effect.succeed,
     Effect.tap((cmd) => Effect.logInfo(`Executing command`, cmd)),

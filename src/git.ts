@@ -84,3 +84,11 @@ export function formatPatch(
   const separator = ["---"];
   return [...header, ...bodyLines, ...separator, ...diffs].join("\n");
 }
+
+export function fileContentsBeforeDiff(filePath: string, diff: string) {
+  return pipe(
+    Command.make("patch", "-R", filePath, "-o", "-"),
+    Command.feed(diff),
+    Command.string,
+  );
+}
