@@ -1,7 +1,7 @@
 import { generateObject } from "ai";
 import dedent from "dedent";
 import z from "zod";
-import { runAgent, model } from "./ai";
+import { runAgent, model } from "../ai";
 
 const patchHunk = z.union([
   z

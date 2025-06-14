@@ -1,7 +1,7 @@
 import { generateObject } from "ai";
 import dedent from "dedent";
 import z from "zod";
-import { model, runAgent } from "./ai";
+import { model, runAgent } from "../ai";
 
 const schema = z.object({
   messages: z
