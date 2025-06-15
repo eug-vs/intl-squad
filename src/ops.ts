@@ -1,6 +1,6 @@
 import { FileSystem } from "@effect/platform";
 import { Effect, Match, pipe } from "effect";
-import { PatchHunk } from "./extractor";
+import { PatchHunk } from "./extractor/agent";
 
 export function readAndParseJson(filePath: string) {
   return pipe(
@@ -9,15 +9,6 @@ export function readAndParseJson(filePath: string) {
     Effect.flatMap((fs) => fs.readFileString(filePath)),
     Effect.flatMap((contents) => Effect.try(() => JSON.parse(contents))),
     Effect.withLogSpan("readAndParseJson"),
-  );
-}
-
-export function updateFileContents(filePath: string, contents: string) {
-  return pipe(
-    FileSystem.FileSystem,
-    Effect.tap(Effect.logInfo(`Updating ${filePath}`)),
-    Effect.flatMap((fs) => fs.writeFileString(filePath, contents)),
-    Effect.withLogSpan("updateFileContents"),
   );
 }
 

@@ -52,6 +52,21 @@ export function formatGitDiff(filePath: string, patchedContents: string) {
   );
 }
 
+function formatBody(text: string, width = 72): string[] {
+  return text
+    .trim()
+    .split("\n")
+    .flatMap((line) => {
+      if (line.length <= width) return line;
+      const cropped = line.slice(0, width);
+      const splitIndex = cropped.lastIndexOf(" ");
+      return [
+        line.slice(0, splitIndex),
+        ...formatBody(line.slice(splitIndex + 1), width),
+      ];
+    });
+}
+
 export function formatPatch(
   diffs: string[],
   options: {
@@ -79,7 +94,7 @@ export function formatPatch(
     "",
   ];
 
-  const bodyLines = body ? [body.trim(), ""] : [];
+  const bodyLines = formatBody(body);
 
   const separator = ["---"];
   return [...header, ...bodyLines, ...separator, ...diffs].join("\n");

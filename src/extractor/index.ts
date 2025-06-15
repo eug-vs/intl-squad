@@ -1,27 +1,29 @@
 import { pipe, Effect } from "effect";
 import _ from "lodash";
 import { findUnlocalizedStrings } from "../finder";
-import { formatGitDiff, formatPatch } from "../git";
-import { readAndParseJson, applyPatch, updateFileContents } from "../ops";
+import { readAndParseJson, applyPatch } from "../ops";
 import { extractMessages } from "./agent";
 import { Config } from "../../config";
+import { makePatchWriterLayer, RepoWriter } from "../repoWriter";
 
 export function runExtractor(config: Config) {
   const sourceMessagesFilePath = `${config.messagesPath}/${config.defaultLocale}.json`;
+  const metaPath = `${config.messagesPath}/meta.json`;
 
   return pipe(
     Effect.all(
       {
         messagesJson: readAndParseJson(sourceMessagesFilePath),
+        metadataJson: readAndParseJson(metaPath),
         filesToRefactor: findUnlocalizedStrings(config.cwd, config.filter),
       },
       { concurrency: "unbounded" },
     ),
-    Effect.flatMap(({ messagesJson, filesToRefactor }) =>
+    Effect.flatMap(({ messagesJson, metadataJson, filesToRefactor }) =>
       pipe(
         Effect.forEach(
           filesToRefactor.slice(0, 5),
-          (file, fileIndex) =>
+          (file) =>
             pipe(
               extractMessages({
                 source: file.source,
@@ -37,32 +39,46 @@ export function runExtractor(config: Config) {
               }),
               Effect.flatMap((result) =>
                 pipe(
-                  Effect.all({
-                    fileDiff: pipe(
-                      applyPatch(file.source, result.patch),
-                      Effect.flatMap((contents) =>
-                        formatGitDiff(file.filePath, contents),
+                  RepoWriter,
+                  Effect.flatMap((writer) =>
+                    Effect.all({
+                      updateCode: pipe(
+                        applyPatch(file.source, result.patch),
+                        Effect.flatMap((contents) =>
+                          writer.updateFile(file.filePath, contents),
+                        ),
                       ),
-                    ),
-                    messagesDiff: pipe(
-                      Effect.sync(() => _.merge(messagesJson, result.messages)),
-                      Effect.map((json) => JSON.stringify(json, null, "  ")),
-                      Effect.flatMap((newContents) =>
-                        formatGitDiff(sourceMessagesFilePath, newContents),
+                      updateMessages: pipe(
+                        Effect.sync(() =>
+                          _.merge({}, messagesJson, result.messages),
+                        ),
+                        Effect.map((json) => JSON.stringify(json, null, "  ")),
+                        Effect.flatMap((newContents) =>
+                          writer.updateFile(
+                            sourceMessagesFilePath,
+                            newContents,
+                          ),
+                        ),
                       ),
-                    ),
-                  }),
-                  Effect.map(({ fileDiff, messagesDiff }) =>
-                    formatPatch([fileDiff, messagesDiff], {
-                      body: result.translatorNotes,
-                      author: "AI Extractor <extractor@intl.squad>",
+                      updateMetadata: pipe(
+                        Effect.sync(() =>
+                          _.merge({}, metadataJson, result.metadata),
+                        ),
+                        Effect.map((json) => JSON.stringify(json, null, "  ")),
+                        Effect.flatMap((newContents) =>
+                          writer.updateFile(metaPath, newContents),
+                        ),
+                      ),
+                      summary: writer.provideSummary({
+                        subject: `refactor(i18n): extract messages for ${Object.keys(result.messages).join(", ")}`,
+                        body: result.notes,
+                      }),
                     }),
                   ),
-                  Effect.tap(Effect.logInfo),
-                  Effect.flatMap((patch) =>
-                    updateFileContents(`/tmp/${fileIndex}.patch`, patch),
-                  ),
                 ),
+              ),
+              Effect.provide(
+                makePatchWriterLayer("AI Extractor <extractor@intl.squad>"),
               ),
             ),
           { concurrency: "unbounded" },

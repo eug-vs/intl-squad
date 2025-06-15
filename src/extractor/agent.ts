@@ -48,17 +48,22 @@ const schema = z.object({
   patch: patchHunk
     .array()
     .describe(
-      "the patch that should be applied to the file, represented as a series of operations.",
+      "The patch that should be applied to the file, represented as a series of operations.",
     ),
   messages: z
     .any()
     .describe(
       "JSON object with generated messages, will be deep-merged with original JSON. This object is interpeted relative to the root of messages JSON (i.e you must specify full tree)",
     ),
-  translatorNotes: z
+  metadata: z
+    .any()
+    .describe(
+      "JSON object with the same structure as generated messages JSON, but partial (fields can be omitted at any level). Values in this structure represent important information that will be used by translators: context around component, hints, disambiguations. Only put important and non-obvious information here, that can not be deduced from the messages themselves. For example - if you see that component contains max-w-20, add message that long strings wouldn't fit there, with optional character soft-limit",
+    ),
+  notes: z
     .string()
     .describe(
-      "Short component description for the translators - only important context, hints, disambiguations. Don't put summary of actions here, instead put relevant information about how the messages are used",
+      "Put important notes here, possible issues that need to be reviewed, things you are unsure of. DO NOT put summary of your actions here.",
     ),
 });
 
