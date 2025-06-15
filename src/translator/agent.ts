@@ -3,7 +3,8 @@ import dedent from "dedent";
 import z from "zod";
 import { model, runAgent } from "../ai";
 import { JSONValue } from "../repo/jsonFile";
-import { GlossaryFile } from "../repo/repoReader";
+import { GlossaryFile, MetadataFile } from "../repo/repoReader";
+import _ from "lodash";
 
 const schema = z.object({
   locale: z.string(),
@@ -28,6 +29,7 @@ const schema = z.object({
 export function translate(args: {
   projectContext: string;
   glossaries: GlossaryFile[];
+  metadataFile: MetadataFile;
   messagesToTranslate: JSONValue;
 }) {
   return runAgent("translator", () =>
@@ -74,6 +76,10 @@ export function translate(args: {
           role: "system" as const,
           content: `Requested locale: ${locale}\n${JSON.stringify(json)}`,
         })),
+        {
+          role: "system",
+          content: `Metadata: ${JSON.stringify(_.pick(args.metadataFile.json, Object.keys(args.messagesToTranslate)))}`,
+        },
         {
           role: "system",
           content: JSON.stringify(args.messagesToTranslate),

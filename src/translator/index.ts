@@ -57,6 +57,7 @@ export function runTranslator() {
             translate({
               projectContext: "",
               glossaries,
+              metadataFile,
               messagesToTranslate: mainLocaleFileDiff,
             }),
             Effect.flatMap((translatedResults) =>
