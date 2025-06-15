@@ -1,108 +1,97 @@
 import { pipe, Effect, Stream } from "effect";
 import _ from "lodash";
 import { fileContentsBeforeDiff } from "../git";
-import { readAndParseJson } from "../ops";
 import { getStdinStream } from "../stdin";
 import { translate } from "./agent";
-import { Config } from "../../config";
 import { diff as objectDiff } from "deep-object-diff";
 import { makePatchWriterLayer, RepoWriter } from "../repoWriter";
+import { JSONValue, RepoReader } from "../repoReader";
 
-export function runTranslator(config: Config) {
-  const sourceMessagesFilePath = `${config.messagesPath}/${config.defaultLocale}.json`;
-
-  const getJsonDiffFromStdin = pipe(
-    getStdinStream("stdin"),
-    Effect.flatMap(
-      Stream.runFold(
-        "",
-        (output, chunk) => output + Buffer.from(chunk).toString(),
-      ),
-    ),
-    Effect.flatMap((diff) =>
-      Effect.all(
-        {
-          before: pipe(
-            fileContentsBeforeDiff(sourceMessagesFilePath, diff),
-            Effect.map((fileContents) => JSON.parse(fileContents || "{}")),
-          ),
-          after: readAndParseJson(sourceMessagesFilePath),
-        },
-        {
-          concurrency: "unbounded",
-        },
-      ),
-    ),
-    Effect.tap(Effect.log),
-    Effect.map(({ before, after }) => objectDiff(before, after)),
-    Effect.map((delta) => _.pickBy(delta, (x) => x !== undefined)),
-    Effect.tap(Effect.log),
-  );
-
+export function runTranslator() {
+  const localesFromArgs = process.argv.slice(3);
   return pipe(
-    Effect.all({
-      diff: getJsonDiffFromStdin,
-      requestedLocales: Effect.forEach(config.locales, (locale) =>
-        pipe(
-          readAndParseJson(`${config.messagesPath}/${locale}.glossary.json`),
-          Effect.orElseSucceed(() => ({})),
-          Effect.map((glossary) => ({
-            locale,
-            glossary,
-          })),
-        ),
-      ),
-    }),
-    Effect.flatMap(({ diff, requestedLocales }) =>
+    RepoReader,
+    Effect.flatMap((repoReader) =>
       pipe(
-        translate({
-          projectContext: "",
-          translatorNotes: "",
-          requestedLocales,
-          stringifedMessages: JSON.stringify(diff),
+        Effect.all({
+          mainLocaleFileDiff: pipe(
+            repoReader.getLocaleFile(repoReader.defaultLocale),
+            Effect.flatMap((localeFile) =>
+              pipe(
+                getStdinStream("stdin"),
+                Effect.flatMap(
+                  Stream.runFold(
+                    "",
+                    (output, chunk) => output + Buffer.from(chunk).toString(),
+                  ),
+                ),
+                Effect.flatMap((diff) =>
+                  pipe(
+                    fileContentsBeforeDiff(localeFile.path, diff),
+                    Effect.map((fileContents) =>
+                      JSON.parse(fileContents || "{}"),
+                    ),
+                  ),
+                ),
+                Effect.tap(Effect.log),
+                Effect.map((before) =>
+                  objectDiff(before, localeFile.json as object),
+                ),
+                Effect.map((delta) => _.pickBy(delta, (x) => x !== undefined)),
+                Effect.map(JSONValue),
+                Effect.tap(Effect.log),
+              ),
+            ),
+          ),
+          metadataFile: repoReader.getMetadataFile(),
+          glossaries: Effect.forEach(
+            localesFromArgs.length
+              ? localesFromArgs
+              : repoReader.derivedLocales,
+            (locale) => repoReader.getGlossaryFile(locale),
+          ),
         }),
-        Effect.flatMap((translatedResults) =>
+        Effect.flatMap(({ mainLocaleFileDiff, metadataFile, glossaries }) =>
           pipe(
-            RepoWriter,
-            Effect.flatMap((writer) =>
+            translate({
+              projectContext: "",
+              glossaries,
+              messagesToTranslate: mainLocaleFileDiff,
+            }),
+            Effect.flatMap((translatedResults) =>
               Effect.forEach(
                 translatedResults,
-                (translation) => {
-                  const path = `${config.messagesPath}/${translation.locale}.json`;
-                  const glossaryPath = `${config.messagesPath}/${translation.locale}.glossary.json`;
-                  return Effect.all([
+                (result) =>
+                  Effect.all([
                     pipe(
-                      readAndParseJson(path),
-                      Effect.map((json) =>
-                        _.merge({}, json, translation.messages),
-                      ),
-                      Effect.map((json) => JSON.stringify(json, null, "  ")),
-                      Effect.flatMap((newContents) =>
-                        writer.updateFile(path, newContents),
+                      repoReader.getLocaleFile(result.locale),
+                      Effect.flatMap((localeFile) =>
+                        localeFile.applyPatch(result.messages),
                       ),
                     ),
                     pipe(
-                      readAndParseJson(glossaryPath),
-                      Effect.orElseSucceed(() => ({})),
-                      Effect.map((json) =>
-                        _.merge({}, json, translation.glossaryUpdate),
-                      ),
-                      Effect.map((json) => JSON.stringify(json, null, "  ")),
-                      Effect.flatMap((newContents) =>
-                        writer.updateFile(glossaryPath, newContents),
+                      repoReader.getGlossaryFile(result.locale),
+                      Effect.flatMap((localeFile) =>
+                        result.glossaryUpdate
+                          ? localeFile.applyPatch(result.glossaryUpdate)
+                          : Effect.void,
                       ),
                     ),
-                    writer.provideSummary({
-                      subject: `feat(i18n): translate ${Object.keys(diff).join(", ")}`,
-                      body: translatedResults
-                        .map(
-                          (result) =>
-                            `${result.locale.toUpperCase()}: ${result.notes}`,
-                        )
-                        .join("\n\n"),
-                    }),
-                  ]);
-                },
+                    pipe(
+                      RepoWriter,
+                      Effect.flatMap((writer) =>
+                        writer.provideSummary({
+                          subject: `feat(i18n): translate ${Object.keys(mainLocaleFileDiff).join(", ")}`,
+                          body: translatedResults
+                            .map(
+                              (result) =>
+                                `${result.locale.toUpperCase()}: ${result.notes}`,
+                            )
+                            .join("\n\n"),
+                        }),
+                      ),
+                    ),
+                  ]),
                 {
                   concurrency: "unbounded",
                 },
@@ -110,10 +99,10 @@ export function runTranslator(config: Config) {
             ),
           ),
         ),
+        Effect.provide(
+          makePatchWriterLayer("AI Translator <translator@intl-squad.dev>"),
+        ),
       ),
-    ),
-    Effect.provide(
-      makePatchWriterLayer("AI Translator <translator@intl.squad>"),
     ),
   );
 }

@@ -1,5 +1,6 @@
 import { Command } from "@effect/platform";
 import { Effect, pipe, Schema } from "effect";
+import { PlainTextFile } from "./repoReader";
 
 const Message = Schema.Struct({
   ruleId: Schema.NullishOr(Schema.String),
@@ -43,6 +44,9 @@ export function findUnlocalizedStrings(path: string, filter: string[]) {
         `Found unlocalized strings in ${files.length} files`,
         ...files.map((f) => f.filePath),
       ),
+    ),
+    Effect.map((files) =>
+      files.map((file) => new PlainTextFile(file.filePath, file.source)),
     ),
     Effect.withLogSpan("findUnlocalizedStrings"),
   );

@@ -2,19 +2,20 @@ import { generateObject } from "ai";
 import dedent from "dedent";
 import z from "zod";
 import { model, runAgent } from "../ai";
-
-type Glossary = Record<string, string>;
+import { GlossaryFile, JSONValue } from "../repoReader";
 
 const schema = z.object({
+  locale: z.string(),
   messages: z
     .any()
-    .describe("JSON with translated messages, same format as in input"),
-  locale: z.string(),
+    .describe("JSON with translated messages, same format as in input")
+    .transform((json) => JSONValue(json)),
   glossaryUpdate: z
     .record(z.string())
     .describe(
       "JSON object that should be added into existing glossary for future re-use. Keys are entity/concept names in English, values are preferred translations, optionally with other metadata.",
     )
+    .transform((json) => JSONValue(json))
     .optional(),
   notes: z
     .string()
@@ -25,12 +26,8 @@ const schema = z.object({
 
 export function translate(args: {
   projectContext: string;
-  translatorNotes: string;
-  requestedLocales: {
-    locale: string;
-    glossary: Glossary;
-  }[];
-  stringifedMessages: string;
+  glossaries: GlossaryFile[];
+  messagesToTranslate: JSONValue;
 }) {
   return runAgent("translator", () =>
     generateObject({
@@ -72,17 +69,13 @@ export function translate(args: {
           role: "system",
           content: `Project context:\n${args.projectContext}`,
         },
-        {
-          role: "system",
-          content: `Translator notes:\n${args.translatorNotes}`,
-        },
-        ...args.requestedLocales.map(({ locale, glossary }) => ({
+        ...args.glossaries.map(({ locale, json }) => ({
           role: "system" as const,
-          content: `Requested locale: ${locale}\n${JSON.stringify(glossary)}`,
+          content: `Requested locale: ${locale}\n${JSON.stringify(json)}`,
         })),
         {
           role: "system",
-          content: args.stringifedMessages,
+          content: JSON.stringify(args.messagesToTranslate),
         },
       ],
     }),

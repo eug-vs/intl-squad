@@ -1,16 +1,5 @@
-import { FileSystem } from "@effect/platform";
 import { Effect, Match, pipe } from "effect";
 import { PatchHunk } from "./extractor/agent";
-
-export function readAndParseJson(filePath: string) {
-  return pipe(
-    FileSystem.FileSystem,
-    Effect.tap(Effect.logInfo(`Reading ${filePath}`)),
-    Effect.flatMap((fs) => fs.readFileString(filePath)),
-    Effect.flatMap((contents) => Effect.try(() => JSON.parse(contents))),
-    Effect.withLogSpan("readAndParseJson"),
-  );
-}
 
 // Find the shortest substring of source that contains
 // the entire pattern as a subsequence (possibly with missed characters)

@@ -2,6 +2,7 @@ import { generateObject } from "ai";
 import dedent from "dedent";
 import z from "zod";
 import { runAgent, model } from "../ai";
+import { LocaleFile, PlainTextFile } from "../repoReader";
 
 const patchHunk = z.union([
   z
@@ -68,13 +69,11 @@ const schema = z.object({
 });
 
 export function extractMessages({
-  source,
-  messagesJson,
-  occurences,
+  file,
+  mainLocaleFile,
 }: {
-  source: string;
-  messagesJson: string;
-  occurences: string[];
+  file: PlainTextFile;
+  mainLocaleFile: LocaleFile;
 }) {
   return runAgent("extractor", () =>
     generateObject({
@@ -121,24 +120,12 @@ export function extractMessages({
         },
         {
           role: "system",
-          content: source,
+          content: file.contents,
         },
         {
           role: "system",
-          content: messagesJson,
+          content: JSON.stringify(mainLocaleFile.json),
         },
-        ...(occurences.length
-          ? [
-              {
-                role: "system" as const,
-                content: `Below follows a list of unlocalized string occurences`,
-              },
-              ...occurences.map((v) => ({
-                role: "system" as const,
-                content: v,
-              })),
-            ]
-          : []),
       ],
     }),
   );
