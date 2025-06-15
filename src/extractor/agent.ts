@@ -2,7 +2,8 @@ import { generateObject } from "ai";
 import dedent from "dedent";
 import z from "zod";
 import { runAgent, model } from "../ai";
-import { LocaleFile, PlainTextFile } from "../repoReader";
+import { PlainTextFile } from "../repo/plainTextFile";
+import { LocaleFile } from "../repo/repoReader";
 
 const patchHunk = z.union([
   z

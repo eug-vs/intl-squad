@@ -1,38 +1,32 @@
 import { Effect, Match, pipe } from "effect";
-import { PatchHunk } from "./extractor/agent";
+import { PatchHunk } from "../extractor/agent";
+import { RepoWriter } from "./repoWriter";
 
-// Find the shortest substring of source that contains
-// the entire pattern as a subsequence (possibly with missed characters)
-// - missing characters *are* allowed (AI can trim inner whitespace sometimes)
-// - extra characters *are not* allowed
-// - reorders *are not* allowed (AI doesnt seem to mess up order)
-export function matchRange(source: string, pattern: string): [number, number] {
-  let best: [number, number] = [0, source.length + 1]; // init with max range
-
-  for (let i = 0; i < source.length; i++) {
-    if (source[i] !== pattern[0]) continue;
-
-    let si = i;
-    let pi = 0;
-
-    while (si < source.length && pi < pattern.length) {
-      if (source[si] === pattern[pi]) pi++;
-      si++;
-    }
-
-    if (pi === pattern.length && si - i < best[1] - best[0]) {
-      best = [i, si];
-    }
+/**
+ * Represents a plaintext file without known structure
+ * It can only be patched via series of find-and-replace/append operations
+ */
+export class PlainTextFile {
+  constructor(
+    public readonly path: string,
+    public readonly contents: string,
+  ) {}
+  applyPatch(hunks: PatchHunk[]) {
+    return pipe(
+      applyHunks(this.contents, hunks),
+      Effect.flatMap((updatedContents) =>
+        pipe(
+          RepoWriter,
+          Effect.flatMap((writer) =>
+            writer.updateFile(this.path, updatedContents),
+          ),
+        ),
+      ),
+    );
   }
-
-  if (best[1] > source.length) {
-    throw new Error("No match found");
-  }
-
-  return best;
 }
 
-export function applyPatch(source: string, patch: PatchHunk[]) {
+function applyHunks(source: string, patch: PatchHunk[]) {
   return pipe(
     Effect.reduce(patch, source, (contents, hunk) =>
       Match.value(hunk)
@@ -85,4 +79,35 @@ export function applyPatch(source: string, patch: PatchHunk[]) {
     ),
     Effect.withLogSpan("applyPatch"),
   );
+}
+
+// Find the shortest substring of source that contains
+// the entire pattern as a subsequence (possibly with missed characters)
+// - missing characters *are* allowed (AI can trim inner whitespace sometimes)
+// - extra characters *are not* allowed
+// - reorders *are not* allowed (AI doesnt seem to mess up order)
+function matchRange(source: string, pattern: string): [number, number] {
+  let best: [number, number] = [0, source.length + 1]; // init with max range
+
+  for (let i = 0; i < source.length; i++) {
+    if (source[i] !== pattern[0]) continue;
+
+    let si = i;
+    let pi = 0;
+
+    while (si < source.length && pi < pattern.length) {
+      if (source[si] === pattern[pi]) pi++;
+      si++;
+    }
+
+    if (pi === pattern.length && si - i < best[1] - best[0]) {
+      best = [i, si];
+    }
+  }
+
+  if (best[1] > source.length) {
+    throw new Error("No match found");
+  }
+
+  return best;
 }

@@ -1,53 +1,9 @@
-import { Brand, Context, Effect, Layer, pipe } from "effect";
+import { Context, Effect, Layer, pipe } from "effect";
 import { Command, FileSystem } from "@effect/platform";
-import { PatchHunk } from "./extractor/agent";
-import { applyPatch } from "./ops";
-import { RepoWriter } from "./repoWriter";
 import _ from "lodash";
 import { PlatformError } from "@effect/platform/Error";
-
-export class PlainTextFile {
-  constructor(
-    public readonly path: string,
-    public readonly contents: string,
-  ) {}
-  applyPatch(hunks: PatchHunk[]) {
-    return pipe(
-      applyPatch(this.contents, hunks),
-      Effect.flatMap((updatedContents) =>
-        pipe(
-          RepoWriter,
-          Effect.flatMap((writer) =>
-            writer.updateFile(this.path, updatedContents),
-          ),
-        ),
-      ),
-    );
-  }
-}
-export type JSONValue = unknown & Brand.Brand<"JSONValue">;
-export const JSONValue = Brand.nominal<JSONValue>();
-
-class JSONFile {
-  constructor(
-    public readonly path: string,
-    public readonly json: JSONValue,
-  ) {}
-  applyPatch(update: JSONValue) {
-    return pipe(
-      Effect.sync(() => _.merge({}, this.json, update)),
-      Effect.map((json) => JSON.stringify(json, null, "  ")),
-      Effect.flatMap((updatedContents) =>
-        pipe(
-          RepoWriter,
-          Effect.flatMap((writer) =>
-            writer.updateFile(this.path, updatedContents),
-          ),
-        ),
-      ),
-    );
-  }
-}
+import { PlainTextFile } from "./plainTextFile";
+import { JSONFile, JSONValue } from "./jsonFile";
 
 export class MetadataFile extends JSONFile {
   readonly _tag = "MetadataFile";

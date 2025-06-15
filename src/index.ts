@@ -3,7 +3,7 @@ import { Effect, Logger, LogLevel, Match, pipe } from "effect";
 import _ from "lodash";
 import { runExtractor } from "./extractor";
 import { runTranslator } from "./translator";
-import { RepoReaderLive } from "./repoReader";
+import { RepoReaderLive } from "./repo/repoReader";
 
 NodeRuntime.runMain(
   pipe(

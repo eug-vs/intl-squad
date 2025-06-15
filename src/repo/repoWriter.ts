@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Match, pipe, Pool } from "effect";
+import { Context, Effect, Layer, pipe } from "effect";
 import { FileSystem } from "@effect/platform";
 import { formatGitDiff, formatPatch } from "./git";
 import _ from "lodash";

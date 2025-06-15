@@ -1,9 +1,9 @@
 import { pipe, Effect } from "effect";
 import _ from "lodash";
-import { findUnlocalizedStrings } from "../finder";
 import { extractMessages } from "./agent";
-import { makePatchWriterLayer, RepoWriter } from "../repoWriter";
-import { RepoReader } from "../repoReader";
+import { makePatchWriterLayer, RepoWriter } from "../repo/repoWriter";
+import { RepoReader } from "../repo/repoReader";
+import { findFilesWithUnlocalizedStrings } from "./finder";
 
 export function runExtractor() {
   return pipe(
@@ -13,7 +13,7 @@ export function runExtractor() {
           {
             mainLocaleFile: repoReader.getLocaleFile(repoReader.defaultLocale),
             metadataFile: repoReader.getMetadataFile(),
-            filesToRefactor: findUnlocalizedStrings(
+            filesToRefactor: findFilesWithUnlocalizedStrings(
               repoReader.eslintRoot,
               process.argv.slice(3),
             ),

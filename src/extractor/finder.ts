@@ -1,6 +1,6 @@
 import { Command } from "@effect/platform";
 import { Effect, pipe, Schema } from "effect";
-import { PlainTextFile } from "./repoReader";
+import { PlainTextFile } from "../repo/plainTextFile";
 
 const Message = Schema.Struct({
   ruleId: Schema.NullishOr(Schema.String),
@@ -20,7 +20,10 @@ const EslintOutputSchema = Schema.Array(
   }),
 );
 
-export function findUnlocalizedStrings(path: string, filter: string[]) {
+export function findFilesWithUnlocalizedStrings(
+  path: string,
+  filter: string[],
+) {
   return pipe(
     Command.make("pnpm", "eslint", "-f", "json", ...filter),
     Command.workingDirectory(path),
@@ -48,6 +51,6 @@ export function findUnlocalizedStrings(path: string, filter: string[]) {
     Effect.map((files) =>
       files.map((file) => new PlainTextFile(file.filePath, file.source)),
     ),
-    Effect.withLogSpan("findUnlocalizedStrings"),
+    Effect.withLogSpan("findFilesWithUnlocalizedStrings"),
   );
 }

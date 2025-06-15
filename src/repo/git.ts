@@ -1,5 +1,6 @@
 import { Command, Path } from "@effect/platform";
 import { Effect, pipe } from "effect";
+import { RepoReader } from "./repoReader";
 
 export function formatGitDiff(filePath: string, patchedContents: string) {
   return pipe(
@@ -10,23 +11,12 @@ export function formatGitDiff(filePath: string, patchedContents: string) {
         Command.string,
       ),
       relativeFilePath: pipe(
-        Path.Path,
-        Effect.map((path) => path.dirname(filePath)),
-        Effect.flatMap((dirName) =>
+        RepoReader,
+        Effect.map((repoReader) => repoReader.gitRepoRoot),
+        Effect.flatMap((gitRepoRoot) =>
           pipe(
-            Command.make("git", "rev-parse", "--show-toplevel"),
-            Command.workingDirectory(dirName),
-            Command.string,
-            Effect.map((repoPath) => repoPath.trim()),
-            Effect.tap((repoPath) => Effect.logDebug({ repoPath })),
-            Effect.flatMap((repoPath) =>
-              Path.Path.pipe(
-                Effect.map((path) => path.relative(repoPath, filePath)),
-              ),
-            ),
-            Effect.tap((relativePath) =>
-              Effect.logDebug({ relativePath, filePath }),
-            ),
+            Path.Path,
+            Effect.map((path) => path.relative(gitRepoRoot, filePath)),
           ),
         ),
       ),

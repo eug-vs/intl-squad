@@ -1,11 +1,12 @@
 import { pipe, Effect, Stream } from "effect";
 import _ from "lodash";
-import { fileContentsBeforeDiff } from "../git";
+import { fileContentsBeforeDiff } from "../repo/git";
 import { getStdinStream } from "../stdin";
 import { translate } from "./agent";
 import { diff as objectDiff } from "deep-object-diff";
-import { makePatchWriterLayer, RepoWriter } from "../repoWriter";
-import { JSONValue, RepoReader } from "../repoReader";
+import { makePatchWriterLayer, RepoWriter } from "../repo/repoWriter";
+import { RepoReader } from "../repo/repoReader";
+import { JSONValue } from "../repo/jsonFile";
 
 export function runTranslator() {
   const localesFromArgs = process.argv.slice(3);

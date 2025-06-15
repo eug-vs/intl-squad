@@ -2,7 +2,8 @@ import { generateObject } from "ai";
 import dedent from "dedent";
 import z from "zod";
 import { model, runAgent } from "../ai";
-import { GlossaryFile, JSONValue } from "../repoReader";
+import { JSONValue } from "../repo/jsonFile";
+import { GlossaryFile } from "../repo/repoReader";
 
 const schema = z.object({
   locale: z.string(),

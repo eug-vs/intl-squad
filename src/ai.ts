@@ -16,6 +16,6 @@ export function runAgent<O>(
     Effect.tap((result) => Effect.logInfo(result.usage)),
     Effect.map((result) => result.object),
     Effect.tap(Effect.logDebug),
-    Effect.withLogSpan(name),
+    Effect.withLogSpan(`ai:${name}`),
   );
 }
