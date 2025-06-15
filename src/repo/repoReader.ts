@@ -70,6 +70,7 @@ export const RepoReaderLive = ({
           Command.make("git", "rev-parse", "--show-toplevel"),
           Command.workingDirectory(messagesDir),
           Command.string,
+          Effect.map((path) => path.trim()),
         ),
       }),
       Effect.map(({ gitRepoRoot, fs }) =>
