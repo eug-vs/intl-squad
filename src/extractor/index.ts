@@ -14,7 +14,7 @@ export function runExtractor() {
             mainLocaleFile: repoReader.getLocaleFile(repoReader.defaultLocale),
             metadataFile: repoReader.getMetadataFile(),
             filesToRefactor: findFilesWithUnlocalizedStrings(
-              repoReader.eslintRoot,
+              repoReader.packageRoot,
               process.argv.slice(3),
             ),
           },

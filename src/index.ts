@@ -14,11 +14,8 @@ NodeRuntime.runMain(
     ),
     Effect.provide(
       RepoReaderLive({
-        messagesDir:
-          "/home/eug-vs/Documents/Projects/1moment.io/apps/web/src/messages/",
-        eslintRoot: "/home/eug-vs/Documents/Projects/1moment.io/apps/web",
+        messagesDir: process.cwd(),
         defaultLocale: "en",
-        derivedLocales: ["ru", "pl", "uk", "de"],
       }),
     ),
     Effect.tapError(Effect.logError),

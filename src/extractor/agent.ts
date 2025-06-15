@@ -11,7 +11,7 @@ const patchHunk = z.union([
       find: z
         .string()
         .describe(
-          "Exact string in file to be replaced (whitespace needs to be preserved). Do not grab additional context, only what needs to be replaced (e.g surrounding HTML tags if the string intself is already unique). Do not escape quotes",
+          "Exact string in file to be replaced (whitespace needs to be preserved). Do not grab additional context, only what needs to be replaced (e.g surrounding HTML tags if the string itself is not unique). Do not escape quotes",
         ),
       replace: z
         .string()
@@ -100,6 +100,7 @@ export function extractMessages({
           • Ensure that the mapping of unlocalized strings to next-intl API calls is accurate and respects the context (client vs. async server components).
           • In case of ambiguity, choose or clarify the solution that best follows internationalization norms and the specified instructions.
           • Follow industry best practices and standard coding conventions; maintain the original file structure except for the necessary modifications.
+          • Verify that each operation in the generated patch can be applied, especially that "find"/"matchLine" string actually exists in the source (i.e is EXACT substring of the source file).
 
           CONSTRAINTS & BOUNDARIES:
           • The provided file is guaranteed to have at least one occurence of unlocalized string, found by react/jsx-no-literals rule.

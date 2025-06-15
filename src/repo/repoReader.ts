@@ -1,5 +1,5 @@
 import { Context, Effect, Layer, pipe } from "effect";
-import { Command, FileSystem } from "@effect/platform";
+import { Command, FileSystem, Path } from "@effect/platform";
 import _ from "lodash";
 import { PlatformError } from "@effect/platform/Error";
 import { PlainTextFile } from "./plainTextFile";
@@ -36,7 +36,7 @@ export class RepoReader extends Context.Tag("RepoReader")<
   RepoReader,
   {
     gitRepoRoot: string;
-    eslintRoot: string;
+    packageRoot: string;
     defaultLocale: string;
     derivedLocales: string[];
     getMetadataFile(): Effect.Effect<MetadataFile>;
@@ -50,16 +50,28 @@ function parseJSON(s: string) {
   return Effect.try(() => JSON.parse(s));
 }
 
+function findNearestPackageJson(
+  directoryPath: string,
+): Effect.Effect<string, PlatformError, Path.Path | FileSystem.FileSystem> {
+  return Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const fs = yield* FileSystem.FileSystem;
+
+    const dirName = path.dirname(directoryPath);
+    const pkgPath = path.join(dirName, "package.json");
+    const exists = yield* fs.exists(pkgPath);
+    return exists
+      ? yield* Effect.succeed(dirName)
+      : yield* findNearestPackageJson(dirName);
+  });
+}
+
 export const RepoReaderLive = ({
   messagesDir,
-  eslintRoot,
   defaultLocale,
-  derivedLocales,
 }: {
   messagesDir: string;
-  eslintRoot: string;
   defaultLocale: string;
-  derivedLocales: string[];
 }) =>
   Layer.effect(
     RepoReader,
@@ -72,11 +84,22 @@ export const RepoReaderLive = ({
           Command.string,
           Effect.map((path) => path.trim()),
         ),
+        packageRoot: findNearestPackageJson(messagesDir),
+        derivedLocales: Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const files = yield* fs.readDirectory(messagesDir);
+          const localeFiles = files
+            .filter((file) => file.endsWith(".json"))
+            .filter((f) => f !== `${defaultLocale}.json`)
+            .filter((f) => f !== `meta.json`);
+
+          return localeFiles;
+        }),
       }),
-      Effect.map(({ gitRepoRoot, fs }) =>
+      Effect.map(({ gitRepoRoot, packageRoot, derivedLocales, fs }) =>
         RepoReader.of({
           gitRepoRoot,
-          eslintRoot,
+          packageRoot,
           defaultLocale,
           derivedLocales,
           getMetadataFile() {
@@ -114,5 +137,7 @@ export const RepoReaderLive = ({
           },
         }),
       ),
+      Effect.tap((repo) => Effect.logDebug("Initalized repo", repo)),
+      Effect.withLogSpan("RepoReader"),
     ),
   );

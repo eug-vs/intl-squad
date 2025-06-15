@@ -28,7 +28,7 @@ export function findFilesWithUnlocalizedStrings(
     Command.make("pnpm", "eslint", "-f", "json", ...filter),
     Command.workingDirectory(path),
     Effect.succeed,
-    Effect.tap((cmd) => Effect.logInfo(`Executing command`, cmd)),
+    Effect.tap(() => Effect.logInfo("Running eslint...")),
     Effect.flatMap(Command.string),
     Effect.flatMap((stdout) => Effect.try(() => JSON.parse(stdout))),
     Effect.flatMap(Schema.decode(EslintOutputSchema)),
